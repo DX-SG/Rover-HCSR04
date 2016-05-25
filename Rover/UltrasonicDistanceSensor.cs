@@ -38,7 +38,7 @@ namespace Rover
                 _distance = timeBetween.TotalMilliseconds * 17.15;
         }
 
-
+        double _lastDistance = 999.9; 
         public async Task<double> GetDistanceInCmAsync(int timeoutInMilliseconds)
         {
             _stopwatch = new Stopwatch();
@@ -55,13 +55,24 @@ namespace Rover
                 _gpioPinTrig.Write(GpioPinValue.Low);
 
                 _stopwatch.Start();
-
+               
 
                 for (var i = 0; i < timeoutInMilliseconds / 100; i++)
                 {
                     if (_distance.HasValue)
-                        return _distance.Value;
+                    {
+                        //if this is outlier use previous records
+                        if (_distance >= 300)
+                        {
+                            return _lastDistance;
+                        }
+                        else {
+                            _lastDistance = _distance.Value;
+                            return _distance.Value;
+                        }
+                    }
 
+                    
                     await Task.Delay(TimeSpan.FromMilliseconds(100));
                 }
             }

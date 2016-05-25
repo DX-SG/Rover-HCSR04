@@ -65,67 +65,71 @@ namespace Rover
             //The numbers below are GPIO pins which the Raspberry Pi uses to control the motor and sensors
             var driver = new TwoMotorsDriver(new Motor(27, 22), new Motor(5, 6));
             var ultrasonicDistanceSensor = new UltrasonicDistanceSensor(23, 24);
-            
+
 
             //logging
             await WriteLog("Moving forward");
 
             #region you can start editing the region from below
-
-            //set distance to initial value of 100cm
-            var distance = 100.0;
-            driver.MoveForward();
-
-            //if distance is more than 60cm, keep moving
-            while (distance > 60.0)
+            while (true)
             {
-                // you don't need to change the parameter 1000 for timeout. 
-                //this is for the ultrasonic sensor to response
-                distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
-                await WriteLog(distance + "");
+                //set distance to initial value of 200cm
+                var distance = 200.0;
+                driver.MoveForward();
+
+                //if distance is more than 100cm, keep moving
+                while (distance > 100.0)
+                {
+                    // you don't need to change the parameter 1000 for timeout. 
+                    //this is for the ultrasonic sensor to response
+                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
+                    await WriteLog(distance + "");
+                }
+
+                //when distance lesser than 100cm from front obstacle
+                SuperStop(driver);
+
+                double currentDistance = distance;
+                DateTime dt = DateTime.Now;
+                driver.MoveForward();
+
+                //v = d/t
+                while (distance > 50.0)
+                {
+                    // you don't need to change the parameter 1000 for timeout. 
+                    //this is for the ultrasonic sensor to response
+                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
+                }
+                //when distance lesser than 50cm from front obstacle
+                SuperStop(driver);
+
+                //calculate, this is the part where you might want to think of the logic
+                int timeDiff = DateTime.Now.Subtract(dt).Milliseconds;
+                double velocity = (currentDistance - distance) / timeDiff;
+                double x = Math.PI * (currentDistance - distance);
+                double timeTurn = x / velocity;
+                await WriteLog("Turning Left");
+                await driver.TurnLeftAsync((int)(Math.Round(timeTurn)));
+                SuperStop(driver);
+                distance = 999.9;
+                await WriteLog("Completed Turn and Going Forward");
+                driver.MoveForward();
+
+                //keep moving forward till end of finish line
+                while (distance > 30.0)
+                {
+                    // you don't need to change the parameter 1000 for timeout. 
+                    //this is for the ultrasonic sensor to response
+                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
+                }
+
+                #endregion
+
+                await WriteLog("Stopping");
+                SuperStop(driver);
+
+                await Task.Delay(3000);
             }
-
-            //when distance lesser than 60cm from front obstacle
-            SuperStop(driver);
-
-            double currentDistance = distance;
-            DateTime dt = DateTime.Now;
-            driver.MoveForward();
-            
-            //v = d/t
-            while (distance > 30.0)
-            {
-                // you don't need to change the parameter 1000 for timeout. 
-                //this is for the ultrasonic sensor to response
-                distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
-            }
-            //when distance lesser than 30cm from front obstacle
-            SuperStop(driver);
-
-            //calculate, this is the part where you might want to think of the logic
-            int timeDiff = DateTime.Now.Subtract(dt).Milliseconds;
-            double velocity = (currentDistance - distance) / timeDiff;
-            double x = Math.PI * (currentDistance - distance);
-            double timeTurn = x / velocity;
-            await WriteLog("Turning Left");
-            await driver.TurnLeftAsync((int)(Math.Round(timeTurn)));
-            SuperStop(driver);
-            distance = 100;
-            await WriteLog("Completed Turn and Going Forward");
-            driver.MoveForward();
-
-            //keep moving forward till end of finish line
-            while (distance > 30.0)
-            {
-                // you don't need to change the parameter 1000 for timeout. 
-                //this is for the ultrasonic sensor to response
-                distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
-            }
-
-            #endregion
-             
-            await WriteLog("Stopping");
-            SuperStop(driver);
         }
 
         //stop the rover
@@ -137,14 +141,14 @@ namespace Rover
             }
             catch (Exception) { }
         }
-        
+
 
         private async Task WriteLog(string text)
         {
             await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                // Log.Text = $"{text} | " + Log.Text
-                Log.Text = $"{text}  ";
+            // Log.Text = $"{text} | " + Log.Text
+            Log.Text = $"{text}  ";
             });
         }
     }
