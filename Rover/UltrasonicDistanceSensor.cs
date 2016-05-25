@@ -64,7 +64,7 @@ namespace Rover
                         //if this is outlier use previous records
                         if (_distance >= 300)
                         {
-                            return _lastDistance;
+                            return 0.0;
                         }
                         else {
                             _lastDistance = _distance.Value;

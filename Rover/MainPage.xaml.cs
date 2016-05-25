@@ -19,7 +19,7 @@ namespace Rover
         //running some task on different thread
         private BackgroundWorker _worker;
         private CoreDispatcher _dispatcher;
-
+        UltrasonicDistanceSensor ultrasonicDistanceSensor;
         //this is a flag to stop the robot when the application is closed.
         private bool _finish;
 
@@ -64,7 +64,7 @@ namespace Rover
             //instantiate the Motor and Ultrasonic sensors. You will not need to change the GPIO pin numbers below. 
             //The numbers below are GPIO pins which the Raspberry Pi uses to control the motor and sensors
             var driver = new TwoMotorsDriver(new Motor(27, 22), new Motor(5, 6));
-            var ultrasonicDistanceSensor = new UltrasonicDistanceSensor(23, 24);
+            ultrasonicDistanceSensor = new UltrasonicDistanceSensor(23, 24);
 
 
             //logging
@@ -77,46 +77,37 @@ namespace Rover
                 var distance = 200.0;
                 driver.MoveForward();
 
-                //if distance is more than 100cm, keep moving
-                while (distance > 100.0)
+                //if distance is more than 70, keep moving
+                while (distance > 70.0)
                 {
                     // you don't need to change the parameter 1000 for timeout. 
                     //this is for the ultrasonic sensor to response
-                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
-                    await WriteLog(distance + "");
+                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);  
                 }
 
-                //when distance lesser than 100cm from front obstacle
+                //when distance lesser than 70 from front obstacle
                 SuperStop(driver);
-
-                double currentDistance = distance;
-                DateTime dt = DateTime.Now;
+              
+                double currentDistance = await avg(); 
+                await WriteLog(currentDistance + "");
                 driver.MoveForward();
-
-                //v = d/t
-                while (distance > 50.0)
-                {
-                    // you don't need to change the parameter 1000 for timeout. 
-                    //this is for the ultrasonic sensor to response
-                    distance = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
-                }
-                //when distance lesser than 50cm from front obstacle
+                int timeMove = 500; //time for robot to move forward
+                await Task.Delay(timeMove);
                 SuperStop(driver);
-
-                //calculate, this is the part where you might want to think of the logic
-                int timeDiff = DateTime.Now.Subtract(dt).Milliseconds;
-                double velocity = (currentDistance - distance) / timeDiff;
-                double x = Math.PI * (currentDistance - distance);
+                double currentDistance2 = await avg();
+              
+                
+                double velocity = (currentDistance - currentDistance2) / timeMove;
+                double x = Math.PI * (currentDistance - currentDistance2);
                 double timeTurn = x / velocity;
                 await WriteLog("Turning Left");
                 await driver.TurnLeftAsync((int)(Math.Round(timeTurn)));
-                SuperStop(driver);
                 distance = 999.9;
                 await WriteLog("Completed Turn and Going Forward");
                 driver.MoveForward();
 
                 //keep moving forward till end of finish line
-                while (distance > 30.0)
+                while (distance > 50.0)
                 {
                     // you don't need to change the parameter 1000 for timeout. 
                     //this is for the ultrasonic sensor to response
@@ -130,6 +121,23 @@ namespace Rover
 
                 await Task.Delay(3000);
             }
+        }
+
+        private async Task<double> avg()
+        {
+            int count = 7;
+            double result = 0.0;
+            for (int i = 0; i < count; i++)
+            {
+                double temp = 0.0;
+                while (temp == 0.0)
+                {
+                    temp = await ultrasonicDistanceSensor.GetDistanceInCmAsync(1000);
+                }
+                result += temp;
+            }
+            result = result / count;
+            return result;
         }
 
         //stop the rover
